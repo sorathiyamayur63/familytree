@@ -180,7 +180,7 @@ export default function TopNav({
             ) : (
               <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Auto-Saved
+                
               </span>
             )}
           </div>
