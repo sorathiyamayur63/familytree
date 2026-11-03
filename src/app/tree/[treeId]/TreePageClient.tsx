@@ -41,6 +41,7 @@ export default function TreePageClient({ treeId }: Props) {
     selectedNodeId,
     fetchAllTrees,
     switchActiveTree,
+    updateNodePhoto,
   } = useTreeStore();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -191,20 +192,10 @@ export default function TreePageClient({ treeId }: Props) {
   }, [treeId]);
 
   // ─── Photo Crop Complete ──────────────────────────────────
-  const handlePhotoComplete = (base64: string) => {
+  const handlePhotoComplete = async (base64: string) => {
     if (!selectedNodeId) return;
-    const node = nodes.find(n => n._id === selectedNodeId);
-    if (!node) return;
-
-    const updated = { ...node, photo: base64 };
-    upsertNode(updated);
+    await updateNodePhoto(selectedNodeId, base64);
     togglePhotoEditor();
-
-    fetch(`/api/nodes/${selectedNodeId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo: base64 }),
-    }).catch(console.error);
   };
 
   // Keyboard shortcut Ctrl+F for search

@@ -1,10 +1,13 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import type { FamilyNode } from '@/types';
 
-export interface INode extends Omit<FamilyNode, '_id'>, Document {}
+export interface INode extends Omit<FamilyNode, '_id'>, Document<string> {
+  _id: string;
+}
 
 const NodeSchema = new Schema<INode>(
   {
+    _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
     treeId: { type: String, required: true, index: true },
     nameGujarati: { type: String, required: true, default: '' },
     nameEnglish: { type: String, required: true, default: '' },

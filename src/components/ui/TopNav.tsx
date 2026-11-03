@@ -167,24 +167,17 @@ export default function TopNav({
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
-          </div>
 
-
-       {/* Auto-Save Status Badge */}
-      <div className="hidden md:flex items-center absolute left-full ml-2 sm:ml-6 md:ml-[11.25rem] top-1/2 -translate-y-1/2 whitespace-nowrap pointer-events-none">
-            {saveStatus === 'saving' ? (
-              <span className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                Saving…
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                
-              </span>
-            )}
+            {/* Auto-Save Indicator: Only sleek green dot, placed inline */}
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors duration-200 ${
+                saveStatus === 'saving'
+                  ? 'bg-amber-400 animate-pulse ring-2 ring-amber-400/40'
+                  : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+              }`}
+              title={saveStatus === 'saving' ? 'Saving changes…' : 'All changes auto-saved'}
+            />
           </div>
-       
 
           {/* Tree Switcher Dropdown Menu */}
           {showTreeMenu && (
@@ -192,7 +185,8 @@ export default function TopNav({
               <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 px-2 py-1 tracking-wider">
                 <span>Family Trees</span>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setShowTreeMenu(false);
                     setIsTreeManagerOpen(true);
                   }}

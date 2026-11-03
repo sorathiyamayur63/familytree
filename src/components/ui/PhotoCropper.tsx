@@ -26,22 +26,27 @@ export default function PhotoCropper({ onComplete, onClose }: PhotoCropperProps)
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setImgSrc(url);
-    const img = new Image();
-    img.onload = () => {
-      setImgObj(img);
-      // Center crop
-      const minDim = Math.min(img.naturalWidth, img.naturalHeight);
-      const displayScale = CANVAS_SIZE / Math.max(img.naturalWidth, img.naturalHeight);
-      const size = minDim * displayScale * 0.8;
-      setCrop({
-        x: (CANVAS_SIZE - size) / 2,
-        y: (CANVAS_SIZE - size) / 2,
-        size,
-      });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+      setImgSrc(dataUrl);
+      const img = new Image();
+      img.onload = () => {
+        setImgObj(img);
+        // Center crop
+        const minDim = Math.min(img.naturalWidth, img.naturalHeight);
+        const displayScale = CANVAS_SIZE / Math.max(img.naturalWidth, img.naturalHeight);
+        const size = minDim * displayScale * 0.8;
+        setCrop({
+          x: (CANVAS_SIZE - size) / 2,
+          y: (CANVAS_SIZE - size) / 2,
+          size,
+        });
+      };
+      img.src = dataUrl;
     };
-    img.src = url;
+    reader.readAsDataURL(file);
   };
 
   // Render preview
@@ -169,20 +174,20 @@ export default function PhotoCropper({ onComplete, onClose }: PhotoCropperProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl w-80 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">📷 Photo Editor</h3>
-          <button onClick={onClose} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">✕</button>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-84 overflow-hidden text-slate-900 dark:text-slate-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">📷 Photo Editor</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-md">✕</button>
         </div>
 
         <div className="p-4 space-y-3">
           {/* File picker */}
           <button
             onClick={() => fileRef.current?.click()}
-            className="w-full py-2 rounded-lg border border-dashed border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+            className="w-full py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-50 dark:bg-slate-800/50"
           >
-            {imgSrc ? '🔄 Change Photo' : '📁 Choose Photo'}
+            {imgSrc ? '🔄 Change Selected Photo' : '📁 Choose Image File'}
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
 
@@ -193,42 +198,53 @@ export default function PhotoCropper({ onComplete, onClose }: PhotoCropperProps)
                 key={m}
                 onClick={() => setMask(m)}
                 className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                  mask === m ? 'bg-indigo-100 border-indigo-400 text-indigo-700' : 'border-[var(--border)] text-[var(--muted-foreground)]'
+                  mask === m
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 font-semibold'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
-                {m === 'circle' ? '⭕ Circle' : '⬜ Square'}
+                {m === 'circle' ? '⭕ Circle Mask' : '⬜ Square Mask'}
               </button>
             ))}
           </div>
 
           {/* Canvas preview */}
-          <canvas
-            ref={canvasRef}
-            width={CANVAS_SIZE} height={CANVAS_SIZE}
-            className="rounded-xl border border-[var(--border)] w-full cursor-move"
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
-            onWheel={onWheel}
-          />
-          {imgObj && (
-            <p className="text-xs text-center text-[var(--muted-foreground)]">
-              Drag to reposition · Scroll to resize
+          <div className="flex justify-center bg-slate-100 dark:bg-slate-950 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+            <canvas
+              ref={canvasRef}
+              width={CANVAS_SIZE} height={CANVAS_SIZE}
+              className="rounded-lg w-[260px] h-[260px] cursor-move bg-slate-200 dark:bg-slate-900"
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
+              onWheel={onWheel}
+            />
+          </div>
+          {imgObj ? (
+            <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+              Drag to reposition · Scroll wheel to scale
+            </p>
+          ) : (
+            <p className="text-[11px] text-center text-slate-400 dark:text-slate-500">
+              Select a photo above to preview and adjust
             </p>
           )}
 
           {/* Actions */}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="flex-1 py-2 rounded-lg border border-[var(--border)] text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]">
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
               Cancel
             </button>
             <button
               onClick={handleCrop}
               disabled={!imgObj}
-              className="flex-1 py-2 rounded-lg bg-indigo-500 text-white text-xs font-semibold hover:bg-indigo-600 disabled:opacity-40 transition-colors"
+              className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors shadow-xs"
             >
-              ✓ Apply Photo
+              ✓ Apply & Save Photo
             </button>
           </div>
         </div>

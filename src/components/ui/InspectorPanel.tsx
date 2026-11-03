@@ -25,6 +25,7 @@ export default function InspectorPanel() {
     isEditMode,
     togglePhotoEditor,
     autoSaveNode,
+    updateNodePhoto,
   } = useTreeStore();
 
   const selectedNode = nodes.find(n => n._id === selectedNodeId);
@@ -32,17 +33,55 @@ export default function InspectorPanel() {
   const [isSaving, setIsSaving] = useState(false);
   const [kinshipCompareId, setKinshipCompareId] = useState<string | null>(null);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync form when selected node changes
+  // Sync form when selected node changes or photo updates
   useEffect(() => {
     if (selectedNode) {
-      setForm({ ...selectedNode });
+      setForm(prev => ({
+        ...selectedNode,
+        photo: selectedNode.photo ?? prev.photo,
+      }));
       if (!kinshipCompareId && nodes.length > 1) {
         const other = nodes.find(n => n._id !== selectedNode._id);
         if (other) setKinshipCompareId(other._id);
       }
     }
-  }, [selectedNode?._id]);
+  }, [selectedNode?._id, selectedNode?.photo]);
+
+  const handleDirectPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedNode) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const minDim = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - minDim) / 2;
+        const sy = (img.naturalHeight - minDim) / 2;
+        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, 200, 200);
+        const base64 = canvas.toDataURL('image/png');
+        updateNodePhoto(selectedNode._id, base64);
+        setForm(prev => ({ ...prev, photo: base64 }));
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemovePhoto = () => {
+    if (!selectedNode) return;
+    updateNodePhoto(selectedNode._id, '');
+    setForm(prev => ({ ...prev, photo: '' }));
+  };
 
   // Compute live Gujarati kinship relation
   const kinship = useMemo(() => {
@@ -297,25 +336,58 @@ export default function InspectorPanel() {
 
             {/* Photo & Cropping Trigger */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Profile Photo
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Profile Photo
+                </label>
+                {(selectedNode.photo || form.photo) && isEditMode && (
+                  <button
+                    onClick={handleRemovePhoto}
+                    className="text-[10px] text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden">
-                  {form.photo ? (
-                    <img src={form.photo} alt="Profile" className="w-full h-full object-cover" />
+                <div
+                  onClick={() => isEditMode && fileInputRef.current?.click()}
+                  className={`w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0 ${
+                    isEditMode ? 'cursor-pointer hover:border-blue-500' : ''
+                  }`}
+                  title={isEditMode ? 'Click to change photo' : undefined}
+                >
+                  {selectedNode.photo || form.photo ? (
+                    <img src={selectedNode.photo || form.photo} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-xl">👤</span>
                   )}
                 </div>
                 {isEditMode && (
-                  <button
-                    onClick={togglePhotoEditor}
-                    className="flex-1 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors"
-                  >
-                    Upload & Crop Photo
-                  </button>
+                  <div className="flex-1 flex gap-1.5">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 py-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors"
+                      title="Upload image directly"
+                    >
+                      📁 Upload
+                    </button>
+                    <button
+                      onClick={togglePhotoEditor}
+                      className="flex-1 py-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors"
+                      title="Open photo editor to crop"
+                    >
+                      ✂️ Crop
+                    </button>
+                  </div>
                 )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleDirectPhotoUpload}
+                />
               </div>
             </div>
 

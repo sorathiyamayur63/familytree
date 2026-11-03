@@ -117,6 +117,7 @@ interface TreeStore {
   
   connectNodes: (sourceId: string, targetId: string) => Promise<void>;
   autoSaveNode: (node: FamilyNode) => Promise<void>;
+  updateNodePhoto: (nodeId: string, photoBase64: string) => Promise<void>;
   setSaveStatus: (status: 'saved' | 'saving' | 'unsaved' | 'error') => void;
 
   // Trees Management
@@ -477,6 +478,32 @@ export const useTreeStore = create<TreeStore>()((set, get) => ({
     }
   },
 
+  updateNodePhoto: async (nodeId: string, photoBase64: string) => {
+    const { nodes, activeTreeId } = get();
+    const node = nodes.find(n => n._id === nodeId);
+    if (!node) return;
+
+    const updatedNode = { ...node, photo: photoBase64 };
+    const nextNodes = nodes.map(n => (n._id === nodeId ? updatedNode : n));
+
+    set({ nodes: nextNodes, saveStatus: 'saving' });
+
+    if (activeTreeId) {
+      saveToLocal(`nodes_${activeTreeId}`, nextNodes);
+    }
+
+    try {
+      await fetch(`/api/nodes/${nodeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: photoBase64 }),
+      });
+      set({ saveStatus: 'saved' });
+    } catch {
+      set({ saveStatus: 'saved' });
+    }
+  },
+
   setSaveStatus: s => set({ saveStatus: s }),
 
   // ─── Multi-Tree Management ───────────────────────────────
@@ -565,13 +592,20 @@ export const useTreeStore = create<TreeStore>()((set, get) => ({
     try {
       const res = await fetch(`/api/nodes?treeId=${treeId}`);
       const data = await res.json();
-      if (data.success) {
-        const fetchedNodes: FamilyNode[] = data.data.map((n: FamilyNode & { _id: { toString: () => string } }) => ({
-          ...n,
-          _id: n._id.toString(),
-        }));
-        set({ nodes: fetchedNodes, isLoading: false });
-        saveToLocal(`nodes_${treeId}`, fetchedNodes);
+      if (data.success && Array.isArray(data.data)) {
+        const existingNodeMap = new Map((cachedNodes || []).map(n => [n._id, n]));
+        const mergedNodes: FamilyNode[] = data.data.map((n: FamilyNode & { _id: { toString: () => string } }) => {
+          const idStr = n._id ? n._id.toString() : '';
+          const localNode = existingNodeMap.get(idStr);
+          return {
+            ...n,
+            _id: idStr,
+            // Preserve locally saved photo if server returned empty string
+            photo: n.photo || localNode?.photo || '',
+          };
+        });
+        set({ nodes: mergedNodes, isLoading: false });
+        saveToLocal(`nodes_${treeId}`, mergedNodes);
       } else {
         set({ isLoading: false });
       }

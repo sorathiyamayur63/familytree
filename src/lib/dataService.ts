@@ -548,6 +548,12 @@ export const DataService = {
             treeId: String(n.treeId),
           })) as unknown as FamilyNode[];
         }
+        if (treeId === DEFAULT_TREE_ID) {
+          try {
+            await NodeModel.insertMany(DEFAULT_DEMO_NODES);
+            return DEFAULT_DEMO_NODES;
+          } catch {}
+        }
       } catch (err) {
         console.warn('[DataService] Error querying MongoDB nodes, falling back:', err);
       }
@@ -605,7 +611,11 @@ export const DataService = {
     const mongoReady = await checkOrConnectMongo();
     if (mongoReady) {
       try {
-        const updated = await NodeModel.findByIdAndUpdate(id, { $set: data }, { new: true }).lean();
+        const updated = await NodeModel.findOneAndUpdate(
+          { _id: id },
+          { $set: data },
+          { new: true, upsert: false }
+        ).lean();
         if (updated) {
           const nodeObj = {
             ...updated,
@@ -614,14 +624,23 @@ export const DataService = {
           } as unknown as FamilyNode;
           const idx = localNodes.findIndex(n => n._id === id);
           if (idx !== -1) localNodes[idx] = nodeObj;
+          else localNodes.push(nodeObj);
           return nodeObj;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[DataService] Mongo updateNode error:', err);
+      }
     }
     const idx = localNodes.findIndex(n => n._id === id);
     if (idx !== -1) {
       localNodes[idx] = { ...localNodes[idx], ...data } as FamilyNode;
       return localNodes[idx];
+    }
+    const defNode = DEFAULT_DEMO_NODES.find(n => n._id === id);
+    if (defNode) {
+      const merged = { ...defNode, ...data } as FamilyNode;
+      localNodes.push(merged);
+      return merged;
     }
     return null;
   },

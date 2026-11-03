@@ -14,6 +14,7 @@ import {
   drawGhostNode,
   drawMinimap,
   getGhostNodesForSelection,
+  onImageCacheUpdate,
 } from './NodeRenderer';
 import { cullEdges } from '@/lib/culling';
 import type { FamilyEdge, Viewport, GhostNode } from '@/types';
@@ -175,6 +176,12 @@ export default function FamilyCanvas() {
     await connectNodes(sourceId, targetId);
   }, [connectNodes]);
 
+  // ─── Repaint when any node photo finishes loading into memory ─
+  const [imgVer, setImgVer] = useState(0);
+  useEffect(() => {
+    return onImageCacheUpdate(() => setImgVer(v => v + 1));
+  }, []);
+
   // ─── Main Canvas Draw Function (Pure World Canvas in RAF) ─
   const onCanvasDraw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport) => {
     const visibleNodes = nodes.filter(n => !n.hidden);
@@ -221,7 +228,7 @@ export default function FamilyCanvas() {
   }, [
     nodes, edges, ghostNodes, canvasConfig, selectedNodeId, selectedNodeIds,
     hoveredNodeId, referenceNodeId, cycleNodes, showNameInGujarati,
-    flippedLanguageNodeIds, isDarkMode, isEditMode, hoveredPart,
+    flippedLanguageNodeIds, isDarkMode, isEditMode, hoveredPart, imgVer,
   ]);
 
   // ─── Screen Overlays: Minimap fixed in bottom-right corner ─
@@ -302,11 +309,18 @@ export default function FamilyCanvas() {
         e.preventDefault();
         pasteClipboardNodes();
       }
+      // Select All: Ctrl+A / Cmd+A
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        setSelectedNodeIds(nodes.map(n => n._id));
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [
-    viewport.scale, setViewport, clearSelection, selectedNodeIds,
+    viewport.scale, setViewport, clearSelection, selectedNodeIds, nodes, setSelectedNodeIds,
     selectedNodeId, deleteSelectedNodes, cutSelectedNodes, copySelectedNodes, pasteClipboardNodes,
   ]);
 
@@ -329,7 +343,7 @@ export default function FamilyCanvas() {
 
       {/* ─── Floating Multi-Selection Dock (when 2+ nodes selected) ─── */}
       {selectedNodeIds.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-25 flex items-center gap-2.5 bg-slate-900/90 text-white dark:bg-white/95 dark:text-slate-900 px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-medium border border-white/10 dark:border-black/10 animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 bg-slate-900/90 text-white dark:bg-white/95 dark:text-slate-900 px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-medium border border-white/10 dark:border-black/10">
           <span className="flex items-center gap-1.5 font-semibold text-blue-400 dark:text-blue-600">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             {selectedNodeIds.length} members selected

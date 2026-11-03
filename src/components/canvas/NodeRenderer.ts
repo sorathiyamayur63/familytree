@@ -247,11 +247,25 @@ export function drawEdges(
 // ─── Image Cache ──────────────────────────────────────────────
 
 const imageCache = new Map<string, HTMLImageElement | null>();
+const imageListeners = new Set<() => void>();
+
+export function onImageCacheUpdate(listener: () => void) {
+  imageListeners.add(listener);
+  return () => {
+    imageListeners.delete(listener);
+  };
+}
 
 function getCachedImage(src: string): HTMLImageElement | null {
+  if (!src) return null;
   if (imageCache.has(src)) return imageCache.get(src) ?? null;
   const img = new Image();
-  img.onload = () => imageCache.set(src, img);
+  img.onload = () => {
+    imageCache.set(src, img);
+    imageListeners.forEach(fn => {
+      try { fn(); } catch {}
+    });
+  };
   img.onerror = () => imageCache.set(src, null);
   img.src = src;
   imageCache.set(src, null);
@@ -416,7 +430,7 @@ export function drawNode(
   const avatarX = x - HW + 12;
   const avatarY = y - 4;
   const mask = node.style?.photoMask ?? 'circle';
-  const showFullPhoto = zoomLevel === 'detail' && !!node.photo;
+  const showFullPhoto = (zoomLevel === 'detail' || zoomLevel === 'medium') && !!node.photo;
 
   if (showFullPhoto) {
     const img = getCachedImage(node.photo!);
