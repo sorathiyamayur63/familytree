@@ -26,9 +26,9 @@ const GUJARATI_TO_LATIN: [RegExp, string][] = [
 
 /**
  * Convert Gujarati text to a Latin phonetic approximation.
- * Used for phonetic search matching.
  */
 export function gujaratiToPhonetic(text: string): string {
+  if (!text) return '';
   let result = text;
   for (const [pattern, replacement] of GUJARATI_TO_LATIN) {
     result = result.replace(pattern, replacement);
@@ -37,8 +37,148 @@ export function gujaratiToPhonetic(text: string): string {
 }
 
 /**
- * Compute Levenshtein distance between two strings.
- * Used for fuzzy matching.
+ * Common English phonetic patterns to Gujarati
+ */
+const LATIN_TO_GUJARATI_RULES: [RegExp, string][] = [
+  // Compound suffixes
+  [/bhai\b/gi, 'ભાઈ'],
+  [/ben\b/gi, 'બહેન'],
+  [/lal\b/gi, 'લાલ'],
+  [/das\b/gi, 'દાસ'],
+  [/ram\b/gi, 'રામ'],
+  [/kumar\b/gi, 'કુમાર'],
+  [/kant\b/gi, 'કાંત'],
+  [/chandra\b/gi, 'ચંદ્ર'],
+  [/prasad\b/gi, 'પ્રસાદ'],
+
+  // Multi-character consonants
+  [/ksh/gi, 'ક્ષ'],
+  [/gyn|gn/gi, 'જ્ઞ'],
+  [/chh/gi, 'છ'],
+  [/kh/gi, 'ખ'],
+  [/gh/gi, 'ઘ'],
+  [/ch/gi, 'ચ'],
+  [/jh/gi, 'ઝ'],
+  [/th/gi, 'થ'],
+  [/dh/gi, 'ધ'],
+  [/bh/gi, 'ભ'],
+  [/sh/gi, 'શ'],
+  [/ph/gi, 'ફ'],
+
+  // Vowels
+  [/aa/gi, 'ા'],
+  [/ee/gi, 'ી'],
+  [/oo/gi, 'ૂ'],
+  [/ai/gi, 'ૈ'],
+  [/au/gi, 'ૌ'],
+
+  // Single consonants
+  [/k/gi, 'ક'], [/g/gi, 'ગ'], [/j/gi, 'જ'], [/t/gi, 'ત'], [/d/gi, 'દ'],
+  [/n/gi, 'ન'], [/p/gi, 'પ'], [/f/gi, 'ફ'], [/b/gi, 'બ'], [/m/gi, 'મ'],
+  [/y/gi, 'ય'], [/r/gi, 'ર'], [/l/gi, 'લ'], [/v|w/gi, 'વ'], [/s/gi, 'સ'],
+  [/h/gi, 'હ'],
+
+  // Matras
+  [/a/gi, ''], [/i/gi, 'િ'], [/u/gi, 'ુ'], [/e/gi, 'ે'], [/o/gi, 'ો'],
+];
+
+/**
+ * Phonetically suggest a Gujarati name from an English input
+ */
+export function englishToGujaratiPhonetic(englishText: string): string {
+  if (!englishText.trim()) return '';
+  let str = englishText.trim();
+
+  // Known direct dictionary names for instant 100% accuracy
+  const dict: Record<string, string> = {
+    ramesh: 'રમેશ',
+    rameshbhai: 'રમેશભાઈ',
+    suresh: 'સુરેશ',
+    sureshbhai: 'સુરેશભાઈ',
+    mahesh: 'મહેશ',
+    maheshbhai: 'મહેશભાઈ',
+    kishore: 'કિશોર',
+    kishorbhai: 'કિશોરભાઈ',
+    dinesh: 'દિનેશ',
+    dineshbhai: 'દિનેશભાઈ',
+    mukesh: 'મુકેશ',
+    mukeshbhai: 'મુકેશભાઈ',
+    bhavesh: 'ભાવેશ',
+    bhaveshbhai: 'ભાવેશભાઈ',
+    kamlesh: 'કમલેશ',
+    kamleshbhai: 'કમલેશભાઈ',
+    jayesh: 'જયેશ',
+    jayeshbhai: 'જયેશભાઈ',
+    hitesh: 'હિતેશ',
+    hiteshbhai: 'હિતેશભાઈ',
+    manoj: 'મનોજ',
+    manojbhai: 'મનોજભાઈ',
+    paresh: 'પરેશ',
+    pareshbhai: 'પરેશભાઈ',
+    pankaj: 'પંકજ',
+    pankajbhai: 'પંકજભાઈ',
+    bharat: 'ભરત',
+    bharatbhai: 'ભરતભાઈ',
+    alpesh: 'અલ્પેશ',
+    alpeshbhai: 'અલ્પેશભાઈ',
+    daxaben: 'દક્ષાબેન',
+    jamnaben: 'જમનાબેન',
+    sumitraben: 'સુમિત્રાબેન',
+    ushaben: 'ઉષાબેન',
+    geetaben: 'ગીતાબેન',
+    shilpaben: 'શિલ્પાબેન',
+    rekhaben: 'રેખાબેન',
+    meenaben: 'મીનાબેન',
+    kokilaben: 'કોકિલાબેન',
+    hansaben: 'હંસાબેન',
+    manjuben: 'મંજુબેન',
+    bhavanaben: 'ભાવનાબેન',
+    chetna: 'ચેતના',
+    chetnaben: 'ચેતનાબેન',
+    neha: 'નેહા',
+    pooja: 'પૂજા',
+    priya: 'પ્રિયા',
+    rahul: 'રાહુલ',
+    amit: 'અમિત',
+    rohit: 'રોહિત',
+    sunil: 'સુનીલ',
+    anil: 'અનિલ',
+    prakash: 'પ્રકાશ',
+    sanjay: 'સંજય',
+    vijay: 'વિજય',
+    ajay: 'અજય',
+    dharmesh: 'ધર્મેશ',
+    ashok: 'અશોક',
+    ashokbhai: 'અશોકભાઈ',
+    vinod: 'વિનોદ',
+    vinodbhai: 'વિનોદભાઈ',
+    pramod: 'પ્રમોદ',
+    manilal: 'મણીલાલ',
+    chimanlal: 'ચીમનલાલ',
+    chaganlal: 'છગનલાલ',
+    maganlal: 'મગનલાલ',
+    govindbhai: 'ગોવિંદભાઈ',
+    harilal: 'હરીલાલ',
+    jivraj: 'જીવરાજ',
+    jivrajbhai: 'જીવરાજભાઈ',
+    prabhudas: 'પ્રભુદાસ',
+    gordhanbhai: 'ગોરધનભાઈ',
+    tribhovanbhai: 'ત્રિભોવનભાઈ',
+  };
+
+  const lookupKey = str.toLowerCase().replace(/[^a-z]/g, '');
+  if (dict[lookupKey]) return dict[lookupKey];
+
+  // Fallback to phonetic rule transformation
+  let output = str;
+  for (const [pattern, repl] of LATIN_TO_GUJARATI_RULES) {
+    output = output.replace(pattern, repl);
+  }
+  return output;
+}
+
+/**
+ * Compute Levenshtein distance between two strings
  */
 export function levenshtein(a: string, b: string): number {
   const m = a.length;
@@ -58,43 +198,39 @@ export function levenshtein(a: string, b: string): number {
 }
 
 /**
- * Check if query matches a name with fuzzy/phonetic tolerance.
- * Returns a score 0–1 (higher = better match). 0 = no match.
+ * Fuzzy search with Gujarati & English phonetic tolerance
  */
 export function fuzzyMatch(query: string, target: string): number {
   const q = query.toLowerCase().trim();
   const t = target.toLowerCase().trim();
+  if (!q || !t) return 0;
 
-  // Exact substring match — best score
-  if (t.includes(q)) return 1.0;
+  if (t === q) return 1.0;
+  if (t.includes(q)) return 0.95;
 
-  // Phonetic check if query or target has Gujarati chars
   const qPhonetic = gujaratiToPhonetic(q);
   const tPhonetic = gujaratiToPhonetic(t);
-  if (tPhonetic.includes(qPhonetic) || qPhonetic.includes(tPhonetic)) return 0.9;
 
-  // Fuzzy: check each word in target
+  if (tPhonetic === qPhonetic) return 0.92;
+  if (tPhonetic.includes(qPhonetic) || qPhonetic.includes(tPhonetic)) return 0.85;
+
   const words = t.split(/\s+/);
   for (const word of words) {
     const dist = levenshtein(q, word);
-    const threshold = Math.max(1, Math.floor(word.length * 0.3));
+    const threshold = Math.max(1, Math.floor(word.length * 0.35));
     if (dist <= threshold) return 1 - dist / (word.length + 1);
   }
 
-  // Fuzzy on phonetic
   const pWords = tPhonetic.split(/\s+/);
   for (const word of pWords) {
     const dist = levenshtein(qPhonetic, word);
     const threshold = Math.max(1, Math.floor(word.length * 0.4));
-    if (dist <= threshold) return 0.7 - dist / (word.length + 1);
+    if (dist <= threshold) return 0.75 - dist / (word.length + 1);
   }
 
   return 0;
 }
 
-/**
- * Search nodes by query across Gujarati name, English name, and metadata.
- */
 import type { FamilyNode, SearchResult } from '@/types';
 
 export function searchNodes(nodes: FamilyNode[], query: string): SearchResult[] {
@@ -106,20 +242,16 @@ export function searchNodes(nodes: FamilyNode[], query: string): SearchResult[] 
     if (node.hidden) continue;
 
     const scores: number[] = [];
-
-    // Gujarati name
     const guScore = fuzzyMatch(query, node.nameGujarati);
     if (guScore > 0) scores.push(guScore);
 
-    // English name
     const enScore = fuzzyMatch(query, node.nameEnglish);
     if (enScore > 0) scores.push(enScore);
 
-    // Metadata fields
     if (node.metadata) {
       for (const val of Object.values(node.metadata)) {
-        const mScore = fuzzyMatch(query, val);
-        if (mScore > 0) scores.push(mScore * 0.7);
+        const mScore = fuzzyMatch(query, String(val));
+        if (mScore > 0) scores.push(mScore * 0.65);
       }
     }
 
@@ -134,28 +266,3 @@ export function searchNodes(nodes: FamilyNode[], query: string): SearchResult[] 
 
   return results.sort((a, b) => b.score - a.score);
 }
-
-// Gujarati relationship labels
-export const RELATIONSHIP_LABELS_GU: Record<string, string> = {
-  self: 'પોતે',
-  father: 'પિતા',
-  mother: 'માતા',
-  son: 'પુત્ર',
-  daughter: 'પુત્રી',
-  spouse: 'જીવનસાથી',
-  brother: 'ભાઈ',
-  sister: 'બહેન',
-  grandfather: 'દાદા',
-  grandmother: 'દાદી',
-  grandson: 'પૌત્ર',
-  granddaughter: 'પૌત્રી',
-  uncle: 'કાકા',
-  aunt: 'કાકી',
-  cousin: 'પિત્રાઈ',
-  nephew: 'ભત્રીજો',
-  niece: 'ભત્રીજી',
-  'great-grandfather': 'પ્રપિતામહ',
-  'great-grandmother': 'પ્રમાતામહ',
-  '2nd cousin': 'બીજા પિત્રાઈ',
-  '1st cousin once removed': 'પ્રથમ પિત્રાઈ એક ડિગ્રી',
-};

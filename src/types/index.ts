@@ -4,15 +4,17 @@
 
 export type Gender = 'male' | 'female' | 'other';
 
-export type NodeShape = 'circle' | 'rounded-card' | 'badge';
+export type NodeShape = 'rounded-card' | 'circle' | 'badge' | 'minimal-pill';
 
-export type EdgeStyle = 'straight' | 'step' | 'curved' | 'zigzag';
+export type EdgeStyle = 'curved' | 'step' | 'straight' | 'zigzag';
 
-export type RelationType = 'parent-child' | 'spouse';
+export type RelationType = 'parent-child' | 'spouse' | 'in-law' | 'mosal';
 
-export type GridType = 'none' | 'dots' | 'lines' | 'cross';
+export type GridType = 'dots' | 'lines' | 'cross' | 'none';
 
 export type ZoomLevel = 'macro' | 'medium' | 'detail';
+
+export type BranchType = 'main' | 'in-law' | 'mosal';
 
 // ─── Node ────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ export interface NodeStyle {
   borderColor?: string;
   shape?: NodeShape;
   photoMask?: 'circle' | 'square';
+  accentColor?: string;
 }
 
 export interface FamilyNode {
@@ -45,9 +48,30 @@ export interface FamilyNode {
   collapsed?: boolean;
   hidden?: boolean;
   generation?: number;
+  notes?: string;
+  
+  // ─── Advanced In-Law & Branch Support ───────────────────────
+  branchType?: BranchType;           // 'main' (Patrilineal), 'in-law' (સાસરી), 'mosal' (મોસાળ)
+  inLawsHidden?: boolean;            // Whether in-law branch is collapsed/hidden by default
+  inLawNodeIds?: string[];           // IDs of in-law relatives connected to this node
+  kinshipTitle?: string;             // Custom kinship title override (e.g. 'પાટલા સાસુ', 'મોટાબાપા')
+  
   metadata?: Record<string, string>;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ─── Ghost / Suggestion Node ─────────────────────────────────
+
+export interface GhostNode {
+  id: string;
+  targetNodeId: string;
+  relationType: 'father' | 'mother' | 'spouse' | 'child' | 'in-laws';
+  labelGujarati: string;
+  labelEnglish: string;
+  position: NodePosition;
+  gender: Gender;
+  branchType: BranchType;
 }
 
 // ─── Edge / Connection ────────────────────────────────────────
@@ -58,6 +82,7 @@ export interface FamilyEdge {
   targetId: string;
   type: RelationType;
   style?: EdgeStyle;
+  isGhost?: boolean;
 }
 
 // ─── Tree ────────────────────────────────────────────────────
@@ -72,6 +97,7 @@ export interface FamilyTree {
   defaultNodeShape: NodeShape;
   backgroundColor?: string;
   nodeCount: number;
+  rootNodeId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -93,7 +119,7 @@ export interface AABB {
   maxY: number;
 }
 
-// ─── Canvas Engine ────────────────────────────────────────────
+// ─── Canvas Config ────────────────────────────────────────────
 
 export interface CanvasConfig {
   gridType: GridType;
@@ -102,6 +128,21 @@ export interface CanvasConfig {
   edgeStyle: EdgeStyle;
   showMinimap: boolean;
   isEditMode: boolean;
+  showGhostSuggestions: boolean;
+  showInLawBranches: boolean;
+}
+
+// ─── Kinship Calculation Result ───────────────────────────────
+
+export interface KinshipResult {
+  termGujarati: string;        // e.g. "પાટલા સાસુ", "કાકા", "મામા"
+  termPhonetic: string;        // e.g. "Patala Sasu", "Kaka", "Mama"
+  termEnglish: string;         // e.g. "Senior Mother-in-law / Husband's elder brother's wife"
+  descriptionGujarati: string; // e.g. "પતિની વડીલ ભાભી અથવા વડીલ સાસુ સમાન"
+  category: 'paternal' | 'maternal' | 'in-law' | 'direct' | 'sibling' | 'extended' | 'unrelated';
+  generationDiff: number;      // 0 = same gen, +1 = 1 gen older, -1 = 1 gen younger
+  path: string[];              // node ids connecting from to to
+  pathExplanation?: string;    // Human-readable path description
 }
 
 // ─── Search ──────────────────────────────────────────────────
@@ -112,15 +153,6 @@ export interface SearchResult {
   matchField: 'nameGujarati' | 'nameEnglish' | 'metadata';
 }
 
-// ─── Relationship Calculation ─────────────────────────────────
-
-export interface RelationshipResult {
-  label: string;
-  labelGujarati?: string;
-  generationDiff: number;
-  path: string[];
-}
-
 // ─── Undo / Redo ─────────────────────────────────────────────
 
 export type ActionType =
@@ -128,8 +160,7 @@ export type ActionType =
   | 'ADD_NODE'
   | 'DELETE_NODE'
   | 'UPDATE_NODE'
-  | 'ADD_EDGE'
-  | 'DELETE_EDGE'
+  | 'TOGGLE_IN_LAWS'
   | 'COLLAPSE_SUBTREE'
   | 'EXPAND_SUBTREE';
 
@@ -155,6 +186,7 @@ export interface TreeStats {
   maleCount: number;
   femaleCount: number;
   otherCount: number;
+  inLawCount: number;
   generationDepth: number;
   avgLifespan: number | null;
   oldestPerson: FamilyNode | null;
